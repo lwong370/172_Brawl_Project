@@ -1,15 +1,15 @@
 //*****************************************************************************
 //
-// Application Name     - gpio-interrupt-example
-// Application Overview - The objective of this application is to demonstrate
-//                          GPIO interrupts using SW2 and SW3.
-//                          NOTE: the switches are not debounced!
+// Application Name - 172 Brawl 
+// Application Objective - Two-player combat game that involves controlling each character with a 3200 Launchpad 
+//                         built-in accelerometer. Each player can shoot each other with the press of a button. 
+//                         Each player is allotted five hearts which tracks their life count. Every time a player is attacked, 
+//                         the number of hearts for that player decrements. The objective for each player is to kill their opponent. 
+//                         Once a player wins, an email is sent announcing who the winner is and the score for the winner.
 //
 //*****************************************************************************
 
-
 // Standard includes
-//#include <pin_mux_config.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -51,8 +51,6 @@
 #include "glcdfont.h"
 #include "utils/network_utils.h"
 
-
-
 #define APPLICATION_VERSION     "1.4.0"
 #define APP_NAME                "I2C Demo"
 #define UART_PRINT              Report
@@ -72,6 +70,7 @@
 #define MASTER_MSG       "This is CC3200 SPI Master Application\n\r"
 #define SLAVE_MSG        "This is CC3200 SPI Slave Application\n\r"
 
+
 // AWS MACROS
 //NEED TO UPDATE THIS FOR IT TO WORK!
 #define DATE                6     /* Current Date */
@@ -81,12 +80,10 @@
 #define MINUTE              38    /* Time - minutes */
 #define SECOND              0     /* Time - seconds */
 
-
 #define APPLICATION_NAME      "SSL"
 #define APPLICATION_VERSION   "SQ24"
 #define SERVER_NAME           "a4w45g3ohtzb4-ats.iot.us-east-1.amazonaws.com" // CHANGE ME
 #define GOOGLE_DST_PORT       8443
-
 
 // Set the AWS macros
 #define POSTHEADER "POST /things/Lana_CC3200_Board/shadow HTTP/1.1\r\n"             // CHANGE ME
@@ -97,6 +94,7 @@
 #define CLHEADER2 "\r\n\r\n"
 #define GETHEADER "GET /things/Lana_CC3200_Board/shadow HTTP/1.1\r\n"
 
+
 //*****************************************************************************
 //                 GLOBAL VARIABLES -- Start
 //*****************************************************************************
@@ -104,6 +102,9 @@ static unsigned char g_ucTxBuff[TR_BUFF_SIZE];
 static unsigned char g_ucRxBuff[TR_BUFF_SIZE];
 static unsigned char ucTxBuffNdx;
 static unsigned char ucRxBuffNdx;
+
+int x = 0; // Tracks the current x-coordinate we are at
+int y = 0; // Tracks the current y-coordinate we are at
 
 #if defined(ccs)
 extern void (* const g_pfnVectors[])(void);
@@ -137,10 +138,6 @@ volatile unsigned long ir_intflag = 0;
 volatile int timer_flag;
 unsigned long g_ulTimerInts;
 
-// Systick timer
-volatile uint64_t delta;
-volatile uint64_t delta_us;
-
 bool print = false;
 volatile bool uartFlag = false;
 volatile int canShootFlag = 0;
@@ -151,14 +148,12 @@ volatile int p2LifeCnt = 5;
 volatile int playerScore;
 int maxLifeNum = 5;
 
-
 // For AWS
 char stored[1024];
 
-int x = 0; // Tracks the current x-coordinate we are at
-int y = 0; // Tracks the current y-coordinate we are at
-
-// some helpful macros for systick
+// Systick timer
+volatile uint64_t delta;
+volatile uint64_t delta_us;
 
 // the cc3200's fixed clock frequency of 80 MHz
 // note the use of ULL to indicate an unsigned long long constant
@@ -198,9 +193,8 @@ static const PinSetting ir = { .port = GPIOA0_BASE, .pin = 0x1};
 static int set_time();
 static void BoardInit(void);
 
-/**
- * Reset SysTick Counter
- */
+
+// Reset SysTick Counter
 static inline void SysTickReset(void) {
     // any write to the ST_CURRENT register clears it
     // after clearing it automatically gets reset without
@@ -212,7 +206,6 @@ static inline void SysTickReset(void) {
     systick_cnt = 0;
    // timeout = 0;
 }
-
 
 // SW3 Button Handler
 static void GPIOA2IntHandler(void) {
@@ -266,7 +259,6 @@ static void GPIOIrHandler(void) {
     SysTickReset();
 }
 
-
 /**
  * SysTick Interrupt Handler
  * Keep track of whether the systick counter wrapped
@@ -278,9 +270,7 @@ static void SysTickHandler(void) {
 }
 
 
-/**
- * Initializes SysTick Module
- */
+// Initializes SysTick Module
 static void SysTickInit(void) {
 
     // configure the reset value for the systick countdown register
@@ -332,7 +322,6 @@ void UARTHandler() {
     uartFlag = true;
 }
 
-
 static void SlaveIntHandler() {
     unsigned long ulRecvData;
     unsigned long ulStatus;
@@ -363,7 +352,6 @@ void MasterMain() {
 
     // Initialize the message
     memcpy(g_ucTxBuff,MASTER_MSG,sizeof(MASTER_MSG));
-
 
     // Reset SPI
     MAP_SPIReset(GSPI_BASE);
@@ -416,9 +404,7 @@ void SlaveMain() {
 }
 
 
-static void
-DisplayBanner(char * AppName)
-{
+static void DisplayBanner(char * AppName) {
     Report("\n\n\n\r");
     Report("\t\t *************************************************\n\r");
     Report("\t\t      CC3200 %s Application       \n\r", AppName);
@@ -427,9 +413,7 @@ DisplayBanner(char * AppName)
 }
 
 
-void
-DisplayUsage()
-{
+void DisplayUsage() {
     UART_PRINT("Command Usage \n\r");
     UART_PRINT("------------- \n\r");
     UART_PRINT("write <dev_addr> <wrlen> <<byte0> [<byte1> ... ]> <stop>\n\r");
@@ -455,69 +439,52 @@ DisplayUsage()
     UART_PRINT("stop - number of stop bits, 0 or 1\n\r");
     UART_PRINT("--------------------------------------------------------------"
                 "--------------- \n\r\n\r");
-
 }
 
 
-int
-ProcessReadRegCommand(char *pcInpString)
-{
+int ProcessReadRegCommand(char *pcInpString) {
     unsigned char ucDevAddr, ucRegOffset, ucRdLen;
     unsigned char aucRdDataBuf[256];
     char *pcErrPtr;
 
-    //
+    
     // Get the device address
-    //
     pcInpString = strtok(NULL, " ");
     RETERR_IF_TRUE(pcInpString == NULL);
     ucDevAddr = (unsigned char)strtoul(pcInpString+2, &pcErrPtr, 16);
-    //
+    
     // Get the register offset address
-    //
     pcInpString = strtok(NULL, " ");
     RETERR_IF_TRUE(pcInpString == NULL);
     ucRegOffset = (unsigned char)strtoul(pcInpString+2, &pcErrPtr, 16);
 
-    //
     // Get the length of data to be read
-    //
     pcInpString = strtok(NULL, " ");
     RETERR_IF_TRUE(pcInpString == NULL);
     ucRdLen = (unsigned char)strtoul(pcInpString, &pcErrPtr, 10);
-    //RETERR_IF_TRUE(ucLen > sizeof(aucDataBuf));
 
-    //
     // Write the register address to be read from.
     // Stop bit implicitly assumed to be 0.
-    //
     RET_IF_ERR(I2C_IF_Write(ucDevAddr,&ucRegOffset,1,0));
 
-    //
     // Read the specified length of data
-    //
     RET_IF_ERR(I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen));
 
     UART_PRINT("I2C Read From address complete\n\r");
 
-    //
     // Display the buffer over UART on successful readreg
-    //
     DisplayBuffer(aucRdDataBuf, ucRdLen);
 
     return SUCCESS;
 }
 
 
-void
-DisplayPrompt()
-{
+void DisplayPrompt() {
     UART_PRINT("\n\rcmd#");
 }
 
 
-int ProcessWriteCommand(char *pcInpString)
-{
+int ProcessWriteCommand(char *pcInpString) {
     unsigned char ucDevAddr, ucStopBit, ucLen;
     unsigned char aucDataBuf[256];
     char *pcErrPtr;
@@ -550,16 +517,12 @@ int ProcessWriteCommand(char *pcInpString)
 
     // Write the data to the specified address
     iRetVal = I2C_IF_Write(ucDevAddr, aucDataBuf, ucLen, ucStopBit);
-    if(iRetVal == SUCCESS)
-    {
+    if(iRetVal == SUCCESS) {
         UART_PRINT("I2C Write complete\n\r");
-    }
-    else
-    {
+    } else {
         UART_PRINT("I2C Write failed\n\r");
         return FAILURE;
     }
-
     return SUCCESS;
 }
 
@@ -567,27 +530,25 @@ static void BoardInit(void) {
     /* In case of TI-RTOS vector table is initialize by OS itself */
     #ifndef USE_TIRTOS
 
-      // Set vector table base
+    // Set vector table base
     #if defined(ccs)
         MAP_IntVTableBaseSet((unsigned long)&g_pfnVectors[0]);
     #endif
+    
     #if defined(ewarm)
         MAP_IntVTableBaseSet((unsigned long)&__vector_table);
     #endif
     #endif
 
-        // Enable Processor
-        MAP_IntMasterEnable();
-        MAP_IntEnable(FAULT_SYSTICK);
-
-        PRCMCC3200MCUInit();
-
+    // Enable Processor
+    MAP_IntMasterEnable();
+    MAP_IntEnable(FAULT_SYSTICK);
+    PRCMCC3200MCUInit();
     MAP_IntVTableBaseSet((unsigned long)&g_pfnVectors[0]);
 
     // Enable Processor
     MAP_IntMasterEnable();
     MAP_IntEnable(FAULT_SYSTICK);
-
     PRCMCC3200MCUInit();
 }
 
@@ -612,14 +573,12 @@ int ProcessReadCommand(char *pcInpString) {
     // Read the specified length of data
     iRetVal = I2C_IF_Read(ucDevAddr, aucDataBuf, ucLen);
 
-    if(iRetVal == SUCCESS)
-    {
+    if(iRetVal == SUCCESS) {
         UART_PRINT("I2C Read complete\n\r");
 
         // Display the buffer over UART on successful write
         DisplayBuffer(aucDataBuf, ucLen);
-    } else
-    {
+    } else {
         UART_PRINT("I2C Read failed\n\r");
         return FAILURE;
     }
@@ -627,7 +586,7 @@ int ProcessReadCommand(char *pcInpString) {
 }
 
 
-void inShootRange(int x1, int y1, int x2, int y2, int shootRadius){
+void inShootRange(int x1, int y1, int x2, int y2, int shootRadius) {
     // x1 - my player's x position (center of circle)
     // y1 - my player's y position (center of circle)
     // x2 - other player's x position
@@ -665,8 +624,7 @@ int ProcessWriteRegCommand(char *pcInpString) {
     ucWrLen = (unsigned char)strtoul(pcInpString, &pcErrPtr, 10);
 
     // Get the bytes to be written
-    for(; iLoopCnt < ucWrLen + 1; iLoopCnt++)
-    {
+    for(; iLoopCnt < ucWrLen + 1; iLoopCnt++) {
         // Store the data to be written
         pcInpString = strtok(NULL, " ");
         RETERR_IF_TRUE(pcInpString == NULL);
@@ -674,74 +632,41 @@ int ProcessWriteRegCommand(char *pcInpString) {
                 (unsigned char)strtoul(pcInpString+2, &pcErrPtr, 16);
     }
 
-    // Write the data values.
+    // Write the data values
     RET_IF_ERR(I2C_IF_Write(ucDevAddr,&aucDataBuf[0],ucWrLen+1,1));
-
     UART_PRINT("I2C Write To address complete\n\r");
-
     return SUCCESS;
 }
-
 
 int ParseNProcessCmd(char *pcCmdBuffer) {
     char *pcInpString;
     int iRetVal = FAILURE;
 
     pcInpString = strtok(pcCmdBuffer, " \n\r");
-    if(pcInpString != NULL)
-
-    {
-        if(!strcmp(pcInpString, "read"))
-        {
+    if(pcInpString != NULL) {
+        if(!strcmp(pcInpString, "read")) {
             // Invoke the read command handler
             iRetVal = ProcessReadCommand(pcInpString);
         }
-        else if(!strcmp(pcInpString, "readreg"))
-        {
+        else if(!strcmp(pcInpString, "readreg")) {
             // Invoke the readreg command handler
             iRetVal = ProcessReadRegCommand(pcInpString);
         }
-        else if(!strcmp(pcInpString, "writereg"))
-        {
+        else if(!strcmp(pcInpString, "writereg")) {
             // Invoke the writereg command handler
             iRetVal = ProcessWriteRegCommand(pcInpString);
         }
-        else if(!strcmp(pcInpString, "write"))
-        {
+        else if(!strcmp(pcInpString, "write")) {
             // Invoke the write command handler
             iRetVal = ProcessWriteCommand(pcInpString);
         }
-        else
-        {
+        else {
             UART_PRINT("Unsupported command\n\r");
             return FAILURE;
         }
     }
     return iRetVal;
 }
-
-// Code for if we involve our own lives in our display
-//void p1InitLifeDisplay(int numHearts) {
-//    int xCoor = 121;
-//
-//    int i;
-//    for(i = 0; i < numHearts; i++) {
-//        drawHeart(xCoor, 115, BLUE);
-//        xCoor = xCoor - 13;
-//    }
-//}
-//
-//
-//void p1LifeDisplay(int numHearts) {
-//    int xCoor = 121;
-//    int numHeartsSubtract = maxLifeNum - numHearts;
-//
-//    int i;
-//    for(i = 0; i < numHeartsSubtract; i++) {
-//        drawHeart(xCoor, 115, GREEN);
-//        xCoor = xCoor - 13;
-//    }
-//}
 
 // Loads all the hearts on start of game play
 void p2InitLifeDisplay(int numHearts) {
@@ -766,9 +691,8 @@ void p2LifeDisplay(int numHearts) {
     }
 }
 
-
 // Post data to AWS
-static int http_post(int iTLSSockID){
+static int http_post(int iTLSSockID) {
     char acSendBuff[512];
     char acRecvbuff[1460];
     char cCLLength[200];
@@ -848,7 +772,6 @@ static int set_time() {
     return SUCCESS;
 }
 
-
 void gameOverDisp(int playerNum) {
     fillScreen(BLACK);
     char declare[50];  // Create a character array to hold the formatted string
@@ -898,7 +821,6 @@ int main() {
     ulUARTStatus = MAP_UARTIntStatus(UARTA1_BASE, true);
     UARTIntClear(UARTA1_BASE, ulUARTStatus);
 
-
     //connect tx and rx pins
     UARTFIFOLevelSet(UARTA1_BASE, UART_FIFO_TX1_8, UART_FIFO_RX1_8);
     UARTIntEnable(UARTA1_BASE, UART_INT_RX);
@@ -922,7 +844,7 @@ int main() {
     // I2C Init
     I2C_IF_Open(I2C_MASTER_MODE_FST);
     DisplayBanner(APP_NAME);
-       DisplayUsage();
+    DisplayUsage();
 
     Report("End of main.\n\r");
 
@@ -969,287 +891,216 @@ int main() {
         ERR_PRINT(lRetVal);
     }
 
-//#if MASTER_MODE
-//    Report("Before mastermain\n");
-//    MasterMain();
-//    Adafruit_Init();
+    // Circle character's position
+    int xCoor;
+    int yCoor;
+    int xCoor2;
+    int yCoor2;
+    int prevXCoor = 0;
+    int prevYCoor = 0;
+    int prevXCoor2 = 0;
+    int prevYCoor2 = 0;
+    int color = 0xFFFF;
+    char endGame[5] = {'h', 'h', 'h', 'h', 'h'};
+    signed char xAcceleration;
+    signed char yAcceleration;
+    int playerWon;
+    const char *winner;
+    MasterMain();
+    Adafruit_Init();
+    fillScreen(GREEN);
+    setTextColor(BLACK,GREEN);
 
+    // player two hearts
+    p2InitLifeDisplay(maxLifeNum);
 
-   // Circle character's position
-   int xCoor;
-   int yCoor;
-   int xCoor2;
-   int yCoor2;
-   int prevXCoor = 0;
-   int prevYCoor = 0;
-   int prevXCoor2 = 0;
-   int prevYCoor2 = 0;
-   int color = 0xFFFF;
-   char endGame[5] = {'h', 'h', 'h', 'h', 'h'};
-   signed char xAcceleration;
-   signed char yAcceleration;
-   int playerWon;
-   const char *winner;
-   MasterMain();
-   Adafruit_Init();
-   fillScreen(GREEN);
-   setTextColor(BLACK,GREEN);
-
-   // player two hearts
-   p2InitLifeDisplay(maxLifeNum);
-
-
-   while(FOREVER){
+    while(FOREVER){
         // reset the countdown register
-         SysTickReset();
+        SysTickReset();
 
-         // wait for a fixed number of cycles
-         UtilsDelay(2000);
+        // wait for a fixed number of cycles
+        UtilsDelay(2000);
 
-         // read the countdown register and compute elapsed cycles
-         uint64_t delta = SYSTICK_RELOAD_VAL - SysTickValueGet();
+        // read the countdown register and compute elapsed cycles
+        uint64_t delta = SYSTICK_RELOAD_VAL - SysTickValueGet();
 
-         // convert elapsed cycles to microseconds
-         uint64_t delta_us = TICKS_TO_US(delta);
-         playerScore += delta_us;
+        // convert elapsed cycles to microseconds
+        uint64_t delta_us = TICKS_TO_US(delta);
+        playerScore += delta_us;
 
-         // print measured time to UART
-         //Report("cycles = %d\tus = %d\n\r", delta, delta_us);
+        // print measured time to UART
+        //Report("cycles = %d\tus = %d\n\r", delta, delta_us);
 
-         unsigned char ucDevAddr, ucXRefOffset, ucYRefOffset, ucRdLen;
-         unsigned char aucRdDataBuf[256];
+        unsigned char ucDevAddr, ucXRefOffset, ucYRefOffset, ucRdLen;
+        unsigned char aucRdDataBuf[256];
 
-         // Define the address of the pin we are reading from
-         ucDevAddr = 0x18;
+        // Define the address of the pin we are reading from
+        ucDevAddr = 0x18;
 
-         // The address of the pin with the x-axis reading
-         ucXRefOffset = 0x3;
+        // The address of the pin with the x-axis reading
+        ucXRefOffset = 0x3;
 
-         // The address of the pin with the y-axis reading
-         ucYRefOffset = 0x5;
+        // The address of the pin with the y-axis reading
+        ucYRefOffset = 0x5;
 
-         ucRdLen = 1;
+        ucRdLen = 1;
 
-         // Reading the X Coordinate
-         RET_IF_ERR(I2C_IF_Write(ucDevAddr,&ucXRefOffset,1,0));
+        // Reading the X Coordinate
+        RET_IF_ERR(I2C_IF_Write(ucDevAddr,&ucXRefOffset,1,0));
 
-         // Read the specified length of data
-         RET_IF_ERR(I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen));
+        // Read the specified length of data
+        RET_IF_ERR(I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen));
 
-         // Gets the acceleration on the y-axis based on the orientation of the physical OLED
-         yAcceleration = aucRdDataBuf[0];
+        // Gets the acceleration on the y-axis based on the orientation of the physical OLED
+        yAcceleration = aucRdDataBuf[0];
 
-         // Reading the Y Coordinate
-         RET_IF_ERR(I2C_IF_Write(ucDevAddr,&ucYRefOffset,1,0));
+        // Reading the Y Coordinate
+        RET_IF_ERR(I2C_IF_Write(ucDevAddr,&ucYRefOffset,1,0));
 
-         RET_IF_ERR(I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen));  // Read the specified length of data
+        RET_IF_ERR(I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen));  // Read the specified length of data
 
-         // Gets the acceleration on the x-axis based on the orientation of the physical OLED
-         xAcceleration = aucRdDataBuf[0];
+        // Gets the acceleration on the x-axis based on the orientation of the physical OLED
+        xAcceleration = aucRdDataBuf[0];
 
-         Report("p1Life: %d, p2life: %d \n\r", p1LifeCnt, p2LifeCnt);
+        Report("p1Life: %d, p2life: %d \n\r", p1LifeCnt, p2LifeCnt);
 
+        // Calculating the positional x and y values
+        xCoor = xCoor + 0.5*(xAcceleration);
+        yCoor = yCoor + 0.5*(yAcceleration);
 
-         // Calculating the positional x and y values
-         xCoor = xCoor + 0.5*(xAcceleration);
-         yCoor = yCoor + 0.5*(yAcceleration);
+        // Keeping the characters within range of the OLED display
+        if(yCoor < 14+4 && xCoor < 64+4){ // Within the range of the top hearts
+            yCoor = 14 + 4;
+        }
+        else if(xCoor > (127-4)){ // Checks if the ball is pass the edge: The OLED is 127 units wide and the ball is 4 units wide, hence subtraction
+            xCoor = (127-4);
+        }
+        else if(yCoor > 110-4 && xCoor > 64-4) {
+            yCoor = 110 - 4;
+        }
+        else if(xCoor < (0+4)){
+            xCoor = (0+4);
+        }
+        if(yCoor>(127-4)){
+            yCoor =(127-4);
+        }
+        else if(yCoor<(0+4)){
+            yCoor =(0+4);
+        }
 
-         // Keeping the characters within range of the OLED display
-         if(yCoor < 14+4 && xCoor < 64+4){ // Within the range of the top hearts
-             yCoor = 14 + 4;
-         }
-         else if(xCoor > (127-4)){ // Checks if the ball is pass the edge: The OLED is 127 units wide and the ball is 4 units wide, hence subtraction
-              xCoor = (127-4);
-         }
-         else if(yCoor > 110-4 && xCoor > 64-4) {
-              yCoor = 110 - 4;
-         }
-         else if(xCoor < (0+4)){
-             xCoor = (0+4);
-         }
-         if(yCoor>(127-4)){
-             yCoor =(127-4);
-         }
-         else if(yCoor<(0+4)){
-             yCoor =(0+4);
-         }
+        // Fill the previous position of the ball with black
+        fillCircle(prevXCoor, prevYCoor, 4, GREEN);
+        fillCircle(xCoor, yCoor, 4, BLUE);
+        p2LifeDisplay(p2LifeCnt);
 
-         // Fill the previous position of the ball with black
-         fillCircle(prevXCoor, prevYCoor, 4, GREEN);
-         fillCircle(xCoor, yCoor, 4, BLUE);
-         p2LifeDisplay(p2LifeCnt);
+        // Checks if we are in range
+        inShootRange(xCoor, yCoor, xCoor2, yCoor2, 10);
 
-         // Checks if we are in range
-         inShootRange(xCoor, yCoor, xCoor2, yCoor2, 10);
+        if(canShootFlag == 1) {
+            Report("Can SHOOT!\n\r");
+            //UARTCharPut(UARTA1_BASE, p1LifeCnt);
 
-               if(canShootFlag == 1) {
-                   Report("Can SHOOT!\n\r");
-//                   UARTCharPut(UARTA1_BASE, p1LifeCnt);
-//
-//                    while(UARTCharsAvail(UARTA1_BASE)) {
-//                        p2LifeCnt = (int) UARTCharGet(UARTA1_BASE);
-//                    }
-                   // Color the new position of the ball
-                   fillCircle(xCoor, yCoor, 4, YELLOW);
-               } else {
-                   fillCircle(xCoor, yCoor, 4, BLUE);
-               }
+            //while(UARTCharsAvail(UARTA1_BASE)) {
+            //    p2LifeCnt = (int) UARTCharGet(UARTA1_BASE);
+            //}
 
-               MAP_UtilsDelay(800000);
-//               if(p2LifeCnt == 0) {
-//                   xCoor = 129;
-//                   playerWon = 1;
-//                   gameOverDisp(playerWon);
-//               }
+            // Color the new position of the ball
+            fillCircle(xCoor, yCoor, 4, YELLOW);
+        } else {
+            fillCircle(xCoor, yCoor, 4, BLUE);
+        }
 
-               UARTCharPut(UARTA1_BASE, xCoor);
-               UARTCharPut(UARTA1_BASE, yCoor);
-
-               prevXCoor = xCoor;
-               prevYCoor = yCoor;
-               while(UARTCharsAvail(UARTA1_BASE)) {
-
-                       xCoor2 = (int) UARTCharGet(UARTA1_BASE);
-                       yCoor2 = (int) UARTCharGet(UARTA1_BASE);
-
-//                      Report("xCoor2: %d, yCoor2: %d \n", xCoor2, yCoor2);
-
-                       // Checks if we hit the edge by seeing if we crossed any boundaries
-                       if(yCoor2 < 14+4 && xCoor2 < 64+4){ // within the range of the top hearts
-                          yCoor2 = 14 + 4;
-                      }
-                      else if(xCoor2 > (127-4)){ // Checks if the ball is pass the edge: The OLED is 127 units wide and the ball is 4 units wide, hence subtraction
-                          xCoor2 = (127-4);
-                      }
-                      else if(yCoor2 > 110-4 && xCoor2 > 64-4) {
-                          yCoor2 = 110 - 4;
-                      }
-                      else if(xCoor2 < (0+4)){
-                          xCoor2 = (0+4);
-                      }
-                      if(yCoor2>(127-4)){
-                          yCoor2 =(127-4);
-                      }
-                      else if(yCoor2<(0+4)){
-                          yCoor2 =(0+4);
-                      }
-
-                       // Fill the previous position of the ball with black
-                       fillCircle(prevXCoor2, prevYCoor2, 4, GREEN);
+        MAP_UtilsDelay(800000);
 
 
-                       // Color the new position of the ball
-                       fillCircle(xCoor2, yCoor2, 4, RED);
+        UARTCharPut(UARTA1_BASE, xCoor);
+        UARTCharPut(UARTA1_BASE, yCoor);
 
-                       MAP_UtilsDelay(80000);
+        prevXCoor = xCoor;
+        prevYCoor = yCoor;
+        while(UARTCharsAvail(UARTA1_BASE)) {
+            xCoor2 = (int) UARTCharGet(UARTA1_BASE);
+            yCoor2 = (int) UARTCharGet(UARTA1_BASE);
 
-                       // Update coordinates
-                       prevXCoor2 = xCoor2;
-                       prevYCoor2 = yCoor2;
-          }
+            // Checks if we hit the edge by seeing if we crossed any boundaries
+            if(yCoor2 < 14+4 && xCoor2 < 64+4){ // within the range of the top hearts
+                yCoor2 = 14 + 4;
+            }
+            else if(xCoor2 > (127-4)){ // Checks if the ball is pass the edge: The OLED is 127 units wide and the ball is 4 units wide, hence subtraction
+                xCoor2 = (127-4);
+            }
+            else if(yCoor2 > 110-4 && xCoor2 > 64-4) {
+                yCoor2 = 110 - 4;
+            }
+            else if(xCoor2 < (0+4)){
+                xCoor2 = (0+4);
+            }
+            if(yCoor2>(127-4)){
+                yCoor2 =(127-4);
+            }
+            else if(yCoor2<(0+4)){
+                yCoor2 =(0+4);
+            }
 
-           if(xCoor2 == 'h' && yCoor2 == 'h'){
-               gameOverDisp(2);
+            // Fill the previous position of the ball with black
+            fillCircle(prevXCoor2, prevYCoor2, 4, GREEN);
 
-               while(1){
-                   Report("Game over\n\r");
-               }
-           }
 
-     if (SW3_intflag) {
-             SW3_intflag=0;  // clear flag
-             if(canShootFlag) {
-                 p2LifeCnt--;
-             }
+            // Color the new position of the ball
+            fillCircle(xCoor2, yCoor2, 4, RED);
 
-             //Checks if a player died after shoot button pressed
-             if(p2LifeCnt == 0) {
-                 int i;
-                 for(i = 0; i < 5; i++) {
-                     UARTCharPut(UARTA1_BASE, endGame[i]);
-                 }
+            MAP_UtilsDelay(80000);
+
+            // Update coordinates
+            prevXCoor2 = xCoor2;
+            prevYCoor2 = yCoor2;
+        }
+
+        if(xCoor2 == 'h' && yCoor2 == 'h'){
+            gameOverDisp(2);
+
+            while(1){
+                Report("Game over\n\r");
+            }
+        }
+
+        if(SW3_intflag) {
+            SW3_intflag=0;  // clear flag
+            if(canShootFlag) {
+                p2LifeCnt--;
+            }
+
+            //Checks if a player died after shoot button pressed
+            if(p2LifeCnt == 0) {
+                int i;
+                for(i = 0; i < 5; i++) {
+                    UARTCharPut(UARTA1_BASE, endGame[i]);
+                }
+                
                 Report("Score: %d", playerScore);
+                playerWon = 1;
+                winner = "Player 1";
 
-                     playerWon = 1;
-                     winner = "Player 1";
+                // Send to AWS -- JSON format that gets sent to AWS
+                snprintf(stored, sizeof(stored),
+                "{" \
+                    "\"state\": {\r\n"                                              \
+                        "\"desired\" : {\r\n"                                       \
+                            "\"var\" : \""                                          \
+                                "Winner: %s, "                                      \
+                                "Score: %d"                                         \
+                            "\"\r\n"                                                \
+                        "}"                                                         \
+                    "}"                                                             \
+                "}\r\n\r\n",
+                winner, playerScore);
 
-                 // Send to AWS
-                 // JSON format that gets sent to AWS
-                     snprintf(stored, sizeof(stored),
-                     "{" \
-                         "\"state\": {\r\n"                                              \
-                             "\"desired\" : {\r\n"                                       \
-                                 "\"var\" : \""                                          \
-                                     "Winner: %s, "                                      \
-                                     "Score: %d"                                         \
-                                 "\"\r\n"                                                \
-                             "}"                                                         \
-                         "}"                                                             \
-                     "}\r\n\r\n",
-                     winner, playerScore);
+                // Post the message from the CC3200 up to AWS
+                http_post(lRetVal);
 
-                 // Post the message from the CC3200 up to AWS
-                 http_post(lRetVal);
-
-                 gameOverDisp(playerWon);
-             }
-     }
-
-//     char z;
-//        if(p2LifeCnt == 0){
-//            UARTCharPut(UARTA1_BASE, '0');
-//            playerWon = 1;
-//            gameOverDisp(playerWon);
-//            break;
-//        }//else{
-//            while(UARTCharsAvail(UARTA1_BASE)) {
-//               z = UARTCharGet(UARTA1_BASE);
-//               if(z == '0'){
-//                   playerWon = 2;
-//                   gameOverDisp(playerWon);
-//
-//                   break;
-//               }
-//            }
-
-//     while(UARTCharsAvail(UARTA1_BASE)) {
-//          p1LifeCnt = (int) UARTCharGet(UARTA1_BASE);
-//
-//         if(p1LifeCnt == 0) {
-//              playerWon = 2;
-//              winner = "Player 2";
-//              // Send to AWS
-//             // JSON format that gets sent to AWS
-//             snprintf(stored, sizeof(stored),"{" \
-//                 "\"state\": {\r\n"                                              \
-//                     "\"desired\" : {\r\n"                                       \
-//                         "\"var\" :\""                                           \
-//                             "Winner: "                                           \
-//                             "%s"      \
-//                             "\"\r\n"                                            \
-//                     "}"                                                         \
-//                 "}"                                                             \
-//             "}\r\n\r\n", winner);
-//
-//             // Post the message from the CC3200 up to AWS
-//             http_post(lRetVal);
-//             gameOverDisp(playerWon);
-//             break;
-//         }
-//     }
-
-   }
+                // Display the "Game Over" Screen
+                gameOverDisp(playerWon);
+            }
+        }
+    }
 }
-//#else
-//
-//    SlaveMain();
-//
-//#endif
-
-
-//*****************************************************************************
-//
-// Close the Doxygen group.
-//! @}
-//
-//****************************************************************************
